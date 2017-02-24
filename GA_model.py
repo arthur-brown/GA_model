@@ -10,6 +10,8 @@ import pint
 # Set up units
 ureg = pint.UnitRegistry()
 
+print "This is a test of the Git branching feature (branch = object_oriented)."
+
 # Design variables
 
 W_TO = Variable("W_TO","N","Takeoff weight")
