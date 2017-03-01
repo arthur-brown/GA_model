@@ -246,6 +246,7 @@ plt.title("Fuel Weight",fontsize = 20)
 plt.legend(numpoints = 1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
          xmax = np.max(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
+plt.ylim(ymin = 0)
 
 #Wing Weight vs. Mission Range
 plt.subplot(2,3,3)
@@ -267,6 +268,7 @@ plt.title("Wing Weight",fontsize = 20)
 plt.legend(numpoints = 1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
          xmax = np.max(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
+plt.ylim(ymin = 0)
 
 #Wingspan vs. Mission Range
 plt.subplot(2,3,4)
@@ -288,6 +290,7 @@ plt.title("Wingspan",fontsize = 20)
 plt.legend(numpoints = 1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
          xmax = np.max(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
+plt.ylim(ymin = 0)
 
 #Aspect Ratio vs. Mission Range
 plt.subplot(2,3,5)
@@ -306,9 +309,10 @@ plt.grid()
 plt.xlabel('Mission range (nm)', fontsize = 16)
 plt.ylabel('Aspect ratio (dimensionless)', fontsize = 16)
 plt.title("Aspect Ratio",fontsize = 20)
-plt.legend(numpoints=1, loc='upper right', fontsize = 12)
+plt.legend(numpoints=1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
          xmax = np.max(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
+plt.ylim(ymin = 0)
 
 #Engine Power vs. Mission Range
 plt.subplot(2,3,6)
@@ -326,6 +330,7 @@ plt.title("Engine Power",fontsize = 20)
 plt.legend(numpoints=1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
          xmax = np.max(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
+plt.ylim(ymin = 0)
 
 title_str = "Key Design Variables vs. Mission Range for a Twin-Engined GA Aircraft"
 plt.suptitle(title_str,fontsize = 24)
