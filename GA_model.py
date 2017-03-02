@@ -75,7 +75,8 @@ N_lim = Variable("N_lim",3.5,"-","Limit load factor")
 rho_AL = Variable("rho_AL",2810,"kg/m^3","Density of 7075-T6 aluminum")
 sigma_AL = Variable("sigma_AL",503e6,"N/m^2","Allowable stress of 7075-T6 aluminum")
 
-wing_SA_multiplier = Variable("wing_SA_multiplier",3.60,"kg/m^2","Wing surface-area weight multiplier")
+wing_term1_multiplier = Variable("wing_term1_multiplier",0.81,"-","Multiplier in 1st term of wing-weight equation")
+wing_SA_multiplier = Variable("wing_SA_multiplier",3.90,"kg/m^2","Wing surface-area weight multiplier")
 weight_multiplier_tail = Variable("weight_multiplier_tail",10,"kg/m^2","Tail weight multiplier")
 weight_multiplier_fuse = Variable("weight_multiplier_fuse",7,"kg/m^2","Fuselage weight multiplier")
 
@@ -131,7 +132,7 @@ constraints += [ N_ult == N_lim*1.5]
 lambda_term = (1+2*lambda_wing) / (1+lambda_wing)
 WTO_term = (b**3 * N_ult * W_TO) / (8 * S * t_c)
 
-constraints += [W_wing >= g*((4./5)*(0.56*rho_AL/sigma_AL + rho_AL/sigma_AL) \
+constraints += [W_wing >= g*((4./5)*(wing_term1_multiplier*rho_AL/sigma_AL + rho_AL/sigma_AL) \
                 *WTO_term*lambda_term + wing_SA_multiplier*Swet_wing)]
 
 W_HT = g * weight_multiplier_tail * S_HT
