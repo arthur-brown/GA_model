@@ -183,9 +183,11 @@ constraints_rubberEngine += [CD_TO >= CD0_cruise + CDA_gear/S,
 # Assemble and run the models
 model_fixedEngine = Model(W_TO,constraints + constraints_fixedEngine)
 sol_fixedEngine = model_fixedEngine.solve(verbosity=0)
+#print sol_fixedEngine.summary()
 
 model_rubberEngine = Model(W_TO,constraints + constraints_rubberEngine)
 sol_rubberEngine = model_rubberEngine.solve(verbosity=0)
+
 
 
 # Plotting commands
@@ -253,7 +255,7 @@ plt.ylim(ymin = 0)
 plt.subplot(2,3,3)
 plt.plot(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude,
         sol_fixedEngine["freevariables"][W_wing].to(ureg.lbf).magnitude,
-         color="black", linewidth=1.5, linestyle="-", marker='s', markersize=8,
+        color="black", linewidth=1.5, linestyle="-", marker='s', markersize=8,
          label='GPKit model (fixed engine)')
 plt.plot(sol_rubberEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude,
         sol_rubberEngine["freevariables"][W_wing].to(ureg.lbf).magnitude,
@@ -296,11 +298,11 @@ plt.ylim(ymin = 0)
 #Aspect Ratio vs. Mission Range
 plt.subplot(2,3,5)
 plt.plot(sol_fixedEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude,
-	sol_fixedEngine["freevariables"][AR].magnitude,
+	sol_fixedEngine["freevariables"][AR],
          color="black", linewidth=1.5, linestyle="-", marker='s', markersize=8,
          label='GPKit model (fixed engine)') 
 plt.plot(sol_rubberEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude,
-        sol_rubberEngine["freevariables"][AR].magnitude,
+        sol_rubberEngine["freevariables"][AR],
          color="black", linewidth=1.5, linestyle="-", marker='^', markersize=8,
          label='GPKit model (rubber engine)')
 plt.plot(cessna_402_data["range"].to(ureg.nautical_mile).magnitude,
