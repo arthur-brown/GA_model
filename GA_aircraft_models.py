@@ -199,7 +199,7 @@ class AllOtherWeights(Model):
 
 
 class Mission(Model):
-    def setup(self,aircraft):
+    def setup(self,aircraft,missionLength_nm=1200):
         
         self.aircraft = aircraft
         W_TO = aircraft["W_TO"]
@@ -207,7 +207,7 @@ class Mission(Model):
 
         constraints = []
         
-        mission_range = Variable("Range",np.linspace(1000,2000,10),"nautical_mile","Mission range")#sweep
+        mission_range = Variable("Range",missionLength_nm,"nautical_mile","Mission range")#sweep
         fuel_allowance = 0.03+0.015+0.005+0.06 #allowance for takeoff, climb, landing, reserves, and trapped fuel
 
         fs = FlightSegment(aircraft,segmentRange = mission_range)
@@ -328,7 +328,7 @@ class FlightState(Model):
 
 class TakeoffConstraint(Model):
 
-    def setup(self,aircraft,state=FlightState(stateType="takeoff")):
+    def setup(self,aircraft,s_TO_ft=1763,state=FlightState(stateType="takeoff")):
         self.aircraft = aircraft
         self.state = state
         self.aerodynamics = Aerodynamics(aircraft,stateType="takeoff")
@@ -339,7 +339,7 @@ class TakeoffConstraint(Model):
 
         y = Variable("y","-","Takeoff-distance parameter 1")
         zeta = Variable("zeta","-","Takeoff-distance parameter 2")
-        s_TO = Variable("s_TO",1763,"ft","Takeoff distance")
+        s_TO = Variable("s_TO",s_TO_ft,"ft","Takeoff distance")
 
         V_TO = 1.1*((2*aircraft.W_TO) / (state["rho"]*aircraft.wing["S"]*CLmax_TO))**(1./2)#1.1*V_stall
         D_TO = 0.5 * state["rho"] * V_TO**2 * aircraft.wing["S"] * CD

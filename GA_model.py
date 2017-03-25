@@ -11,14 +11,19 @@ from GA_aircraft_models import *
 # Set up units
 ureg = pint.UnitRegistry()
 
+takeoff_distance_ft = 1763
+range_nm = np.linspace(1000,2000,10)
+
 GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
 GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
 
-GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine)
-GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine)
+GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm)
+GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm)
 
-GA_takeoffConstraint_fixedEngine = TakeoffConstraint(GA_aircraft_fixedEngine)
-GA_takeoffConstraint_rubberEngine = TakeoffConstraint(GA_aircraft_rubberEngine)
+GA_takeoffConstraint_fixedEngine = TakeoffConstraint(GA_aircraft_fixedEngine,
+    s_TO_ft=takeoff_distance_ft)
+GA_takeoffConstraint_rubberEngine = TakeoffConstraint(GA_aircraft_rubberEngine,
+    s_TO_ft=takeoff_distance_ft)
 
 GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,
     [GA_aircraft_fixedEngine, GA_mission_fixedEngine,GA_takeoffConstraint_fixedEngine])
