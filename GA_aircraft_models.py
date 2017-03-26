@@ -4,7 +4,7 @@
 
 import math
 import numpy as np
-from gpkit import Variable, VectorVariable, Model
+from gpkit import Variable, VectorVariable, Model, Vectorize
 
 class Aircraft(Model): #Overall vehicle model
           
@@ -199,7 +199,7 @@ class AllOtherWeights(Model):
 
 
 class Mission(Model):
-    def setup(self,aircraft,missionLength_nm=1200):
+    def setup(self,aircraft,missionLength_nm=1200,numCruiseSegments=3):
         
         self.aircraft = aircraft
         W_TO = aircraft["W_TO"]
@@ -208,16 +208,26 @@ class Mission(Model):
         constraints = []
         
         mission_range = Variable("Range",missionLength_nm,"nautical_mile","Mission range")#sweep
-        fuel_allowance = 0.03+0.015+0.005+0.06 #allowance for takeoff, climb, landing, reserves, and trapped fuel
+        segment_range = mission_range/numCruiseSegments
 
-        fs = FlightSegment(aircraft,segmentRange = mission_range)
+        with Vectorize(numCruiseSegments):
+        	fs = FlightSegment(aircraft,segment_range)
+
         Wburn = fs.aircraftp["W_{burn}"]
         Wfuel = fs.aircraftp["W_{fuel}"]
 
-        constraints += [Wfuel >= (1+fuel_allowance)*Wburn,
-                        self.aircraft["W_fuel"] >= Wfuel,
-                        fs]
+        ff_warmup = 0.97 #W[i+1]/W[i] for warmup and takeoff
+        ff_climb = 0.985 #W[i+1]/W[i] for climb
+        reserve_allowance = 0.06 #reserve fuel (as a percentage of total fuel carried)
 
+        Wfuel_reserve = Variable("W_{fuel} (reserve)","lbf","Reserve fuel")
+
+        constraints += [Wfuel[0] == ff_warmup * ff_climb * self.aircraft["W_fuel"],
+        				Wfuel[:-1] >= Wfuel[1:] + Wburn[:-1],
+        				Wfuel_reserve == reserve_allowance * self.aircraft["W_fuel"],
+        				Wfuel[-1] >= Wburn[-1] + Wfuel_reserve]
+
+        constraints += fs
         return constraints
 
 class FlightSegment(Model):

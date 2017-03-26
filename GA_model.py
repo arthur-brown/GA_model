@@ -3,7 +3,7 @@
 
 import math
 import numpy as np
-from gpkit import Variable, VectorVariable, Model
+from gpkit import Variable, VectorVariable, Model, Vectorize
 from matplotlib import pyplot as plt
 import pint
 from GA_aircraft_models import *
@@ -13,12 +13,13 @@ ureg = pint.UnitRegistry()
 
 takeoff_distance_ft = 1763
 range_nm = np.linspace(1000,2000,10)
+N = 5 #number of cruise segments
 
 GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
 GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
 
-GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm)
-GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm)
+GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm,numCruiseSegments=N)
+GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm,numCruiseSegments=N)
 
 GA_takeoffConstraint_fixedEngine = TakeoffConstraint(GA_aircraft_fixedEngine,
     s_TO_ft=takeoff_distance_ft)
@@ -35,7 +36,6 @@ GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
 
 #print GA_solution_fixedEngine.summary()
 #GA_mission.debug()
-
 
 # Plotting commands
 plt.ion()
