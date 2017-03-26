@@ -15,19 +15,20 @@ class Aircraft(Model): #Overall vehicle model
         W_ZF = Variable("W_ZF","lbf","Zero-fuel weight")
         W_fuel = Variable("W_fuel","lbf","Fuel weight")
         W_TO = Variable("W_TO","lbf","Takeoff weight")
+
+        self.g = Variable("g",9.807,"m/s**2","Gravitational constant")    
         self.Swet = Variable("Swet","m^2","Aircraft wetted area")
-        
         self.W_TO = W_TO
 
-        self.fuse = Fuselage()
+        self.fuse = Fuselage(self)
         self.wing = Wing(self)
-        self.tailplane = Tailplane()
-        self.fin = VerticalFin()
-        self.engines = Engines(engineType)
-        self.nacelles = Nacelles()
+        self.tailplane = Tailplane(self)
+        self.fin = VerticalFin(self)
+        self.engines = Engines(self,engineType)
+        self.nacelles = Nacelles(self)
         self.landing_gear = LandingGear(self)
-        self.crew = Crew()
-        self.passengers = Passengers()
+        self.crew = Crew(self)
+        self.passengers = Passengers(self)
         self.allOtherWeights = AllOtherWeights(self)
 
         self.components = [self.fuse, self.wing, self.tailplane,self.fin,
@@ -47,8 +48,9 @@ class Aircraft(Model): #Overall vehicle model
         return constraints
 
 class Fuselage(Model):
-    def setup(self):
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+    def setup(self,aircraft):
+
+    	g = aircraft.g
         weight_multiplier_fuse = Variable("weight_multiplier_fuse",7,
             "kg/m^2","Fuselage weight multiplier")
         Swet = Variable("Swet",43.6,"m^2","Fuselage wetted area")
@@ -72,7 +74,7 @@ class Wing(Model):
             "Allowable stress of 7075-T6 aluminum")
         wing_SA_multiplier = Variable("wing_SA_multiplier",
             3.60,"kg/m^2","Wing surface-area weight multiplier")
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         WTO_term = Variable("WTO_term","N*m","Takeoff-weight term")
 
         lambda_wing = 0.6 #Included here to avoid posynomial-compatibility issues
@@ -90,7 +92,7 @@ class Wing(Model):
 
 
 class Tailplane(Model):
-    def setup(self):
+    def setup(self,aircraft):
         S_HT = Variable("S_HT","m^2","Tailplane reference area")
         Swet = Variable("Swet","m^2","Tailplane wetted area")
         c_HT = Variable("c_HT",0.8,"-","Tailplane volume coefficient")
@@ -99,7 +101,7 @@ class Tailplane(Model):
         t_c = Variable("t_c",0.15,"-","Thickness-to-chord ratio")
         weight_multiplier_tail = Variable("weight_multiplier_tail",10,
             "kg/m^2","Tail weight multiplier")
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         W = Variable("W","N","Tailplane weight")
 
         return [Swet >= 1.6*S_HT*(1+0.25*t_c),
@@ -107,7 +109,7 @@ class Tailplane(Model):
         
 
 class VerticalFin(Model):
-    def setup(self):
+    def setup(self,aircraft):
         S_VT = Variable("S_VT","m^2","Fin reference area")
         Swet = Variable("Swet","m^2","Fin wetted area")
         c_VT = Variable("c_VT",0.07,"-","Fin volume coefficient")
@@ -116,20 +118,20 @@ class VerticalFin(Model):
         t_c = Variable("t_c",0.15,"-","Thickness-to-chord ratio")
         weight_multiplier_tail = Variable("weight_multiplier_tail",10,
             "kg/m^2","Tail weight multiplier")
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         W = Variable("W","N","Vertical-fin weight")
 
         return [Swet >= 1.6*S_VT*(1+0.25*t_c),
             W == g * weight_multiplier_tail * S_VT]
 
 class Engines(Model): #Fixed engine only for now
-    def setup(self,engineType):
+    def setup(self,aircraft,engineType):
         # Engine-related variables & constants
         num_engines = Variable("num_engines",2,"-","Number of engines")
         eta_prop = Variable("eta_prop",0.8,'-',"Propeller efficiency")
         SFC = Variable("SFC",6.94e-8,"s**2/m**2",\
             "Engine power-specific fuel consumption") # careful with unit conversion
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         W = Variable("W","N","Engine(s) weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of engines")
         P = Variable("P","kW","Engine power")
@@ -151,7 +153,7 @@ class Engines(Model): #Fixed engine only for now
 
 
 class Nacelles (Model):
-    def setup(self):
+    def setup(self,aircraft):
         Swet_oneNacelle = Variable("Swet_oneNacelle",8.172,"m^2","Wetted area of 1 nacelle")
         num_nacelles = Variable("num_nacelles",2,"-","Number of nacelles")
         Swet = Variable("Swet","m^2","Wetted area of nacelles")
@@ -169,10 +171,10 @@ class LandingGear(Model):
 
 
 class Crew(Model):
-    def setup(self):
+    def setup(self,aircraft):
         num_crew = Variable("num_crew",2,"-","Number of crew members")
         crew_mass = Variable("crew_mass",200,"lbs","Mass per crew member")
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         W = Variable("W","N","Crew weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of crew")
         
@@ -180,11 +182,11 @@ class Crew(Model):
 
 
 class Passengers(Model):
-    def setup(self):
+    def setup(self,aircraft):
         num_passengers = Variable("num_passengers",8,"-","Number of passengers")
         passenger_mass = Variable("passenger_mass",180+40,"lbs",
             "Mass per passenger (including baggage)")
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
         W = Variable("W","N","Passenger weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of passengers")
         
@@ -203,7 +205,8 @@ class Mission(Model):
         
         self.aircraft = aircraft
         W_TO = aircraft["W_TO"]
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
+        self.g = g
 
         constraints = []
         
@@ -256,7 +259,7 @@ class AircraftPerformance(Model):
         CL = self.aerodynamics["C_L"]
         CD = self.aerodynamics["C_D"]
         
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
+        g = aircraft.g
 
         constraints = []
         constraints += [self.aerodynamics]
@@ -320,9 +323,6 @@ class FlightState(Model):
         
         constraints = []
 
-        g = Variable("g",9.807,"m/s**2","Gravitational constant")
-        constraints += [g == g]
-
         if stateType == "cruise":
             V = Variable("V",180,"knots","Airspeed")
             h = Variable("h",8000,"ft","Altitude")
@@ -336,7 +336,7 @@ class FlightState(Model):
 
         return constraints 
 
-class TakeoffConstraint(Model):
+class TakeoffDistance(Model):
 
     def setup(self,aircraft,s_TO_ft=1763,state=FlightState(stateType="takeoff")):
         self.aircraft = aircraft
@@ -345,7 +345,7 @@ class TakeoffConstraint(Model):
         
         CLmax_TO = self.aerodynamics["CLmax_TO"]
         CD = self.aerodynamics["C_D"]
-        g = self.state["g"]
+        g = aircraft.g
 
         y = Variable("y","-","Takeoff-distance parameter 1")
         zeta = Variable("zeta","-","Takeoff-distance parameter 2")
@@ -364,3 +364,25 @@ class TakeoffConstraint(Model):
         constraints += [self.state, self.aerodynamics]
 
         return constraints
+
+class StallSpeed(Model):
+
+	def setup(self,aircraft,Vstall_kts=78,state=FlightState(stateType="takeoff")):
+
+		self.aircraft = aircraft
+		self.state = state
+		self.aerodynamics = Aerodynamics(aircraft,stateType="takeoff")
+
+		W_half = Variable("W_{half}","lbf","Weight at 50% cruise (approximate")
+
+		Vstall = Variable("Vstall","knots","Sea-level stalling speed (knots)")
+		Vstall_req = Variable("Vstall_req",Vstall_kts,"knots","Sea-level stalling speed requirement (knots)")
+		CLmax = self.aerodynamics["CLmax_cruise"]
+
+		constraints = []
+
+		constraints += [W_half >= aircraft["W_ZF"] + 0.5*aircraft["W_fuel"],
+						Vstall == ((2**0.5 * W_half**0.5)/(self.state["rho"]**0.5 * self.aircraft["S"]**0.5 * CLmax**0.5)),
+						Vstall <= Vstall_req]
+
+		return constraints

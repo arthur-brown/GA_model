@@ -14,6 +14,7 @@ ureg = pint.UnitRegistry()
 takeoff_distance_ft = 1763
 range_nm = np.linspace(1000,2000,10)
 N = 5 #number of cruise segments
+stall_speed_kts = 78
 
 GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
 GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
@@ -21,15 +22,21 @@ GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
 GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm,numCruiseSegments=N)
 GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm,numCruiseSegments=N)
 
-GA_takeoffConstraint_fixedEngine = TakeoffConstraint(GA_aircraft_fixedEngine,
+GA_takeoffConstraint_fixedEngine = TakeoffDistance(GA_aircraft_fixedEngine,
     s_TO_ft=takeoff_distance_ft)
-GA_takeoffConstraint_rubberEngine = TakeoffConstraint(GA_aircraft_rubberEngine,
+GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
     s_TO_ft=takeoff_distance_ft)
 
-GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,
-    [GA_aircraft_fixedEngine, GA_mission_fixedEngine,GA_takeoffConstraint_fixedEngine])
-GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,
-    [GA_aircraft_rubberEngine, GA_mission_rubberEngine,GA_takeoffConstraint_rubberEngine])
+GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,Vstall_kts=stall_speed_kts)
+GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,Vstall_kts=stall_speed_kts)
+
+constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
+                            GA_takeoffConstraint_fixedEngine, GA_stallSpeedConstraint_fixedEngine]
+constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
+                            GA_takeoffConstraint_rubberEngine, GA_stallSpeedConstraint_rubberEngine]
+
+GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,constraints_fixedEngine)
+GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,constraints_rubberEngine)
 
 GA_solution_fixedEngine = GA_model_fixedEngine.solve(verbosity=0)
 GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
