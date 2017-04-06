@@ -1,0 +1,28 @@
+Analysis of the Embraer 190 (h = 36,000 ft)
+
+	e: 0.8547 dimensionless
+	V_maxRange: 743.8037 foot / second
+	CD_nonwing: 0.0125 dimensionless
+	CL: 0.6750 dimensionless
+	K: 0.0485 dimensionless
+	CDi: 0.0221 dimensionless
+	CL_maxRange: 0.4965 dimensionless
+	S: 1100.6098 foot ** 2
+	AR: 7.6839 dimensionless
+	CD0: 0.0199 dimensionless
+	CD_wing: 0.0295 dimensionless
+	CD0_wing: 0.0074 dimensionless
+	M_maxRange: 0.7680 dimensionless
+	W_DG: 105822.0000 force_pound
+
+Analysis of the Cessna 310 (h = 7,500 ft)
+
+	e: 0.8170 dimensionless
+	K: 0.0557 dimensionless
+	CL_maxRange: 0.7342 dimensionless
+	S: 175.0000 foot ** 2
+	AR: 7.0000 dimensionless
+	CD0: 0.0300 dimensionless
+	V_maxRange: 199.4531 foot / second
+	M_maxRange: 0.1834 dimensionless
+	W_DG: 4830.0000 force_pound
