@@ -71,19 +71,77 @@ if __name__ == "__main__":
 	E190["CD0_wing"] = E190["CD_wing"] - E190["CDi"]
 	E190["CD0"] = E190["CD0_wing"] + E190["CD_nonwing"]
 
-	#Computations for the Embraer 190 (h = 36,000 ft)
+	#Maximum-range computations for the Embraer 190 (h = 36,000 ft)
 	E190["V_maxRange"], E190["CL_maxRange"] = max_range(W=E190["W_DG"],\
 		rho=rho["h = 36000 ft"],S=E190["S"],CD0=E190["CD0"],K=E190["K"],aircraftType="jet")
 	E190["V_maxRange"] = E190["V_maxRange"].to(ft_per_s)
 	E190["M_maxRange"] = E190["V_maxRange"] / a["h = 36000 ft"]
 
-	#Computations for the Cessna 310 (h = 7,500 ft)
+	#Maximum-range computations for the Cessna 310 (h = 7,500 ft)
 	cessna_310["V_maxRange"], cessna_310["CL_maxRange"] = max_range(W=cessna_310["W_DG"],\
 		rho=rho["h = 7500 ft"],S=cessna_310["S"],CD0=cessna_310["CD0"],K=cessna_310["K"],aircraftType="prop")
 	cessna_310["V_maxRange"] = cessna_310["V_maxRange"].to(ft_per_s)
 	cessna_310["M_maxRange"] = cessna_310["V_maxRange"] / a["h = 7500 ft"]
 
+	#L/D vs. V computations for the Cessna 310
+	num_pts = 30
+	cessna_310_cruiseData = {}
+	cessna_310_cruiseData["rho"] = rho["h = 7500 ft"]
+	cessna_310_cruiseData["V"] = np.linspace(78,200,num_pts)*ureg.knots
+	cessna_310_cruiseData["CL"] = (2*cessna_310["W_DG"]) \
+		/ (cessna_310_cruiseData["rho"] * cessna_310_cruiseData["V"]**2 * cessna_310["S"])
+	cessna_310_cruiseData["CL"] = cessna_310_cruiseData["CL"].to(ureg.dimensionless)
+	cessna_310_cruiseData["CD"] = cessna_310["CD0"] + cessna_310["K"]*cessna_310_cruiseData["CL"]**2
+	cessna_310_cruiseData["L/D"] = cessna_310_cruiseData["CL"] / cessna_310_cruiseData["CD"]
 	
+	#sqrt(M)*L/D computations for the Embraer E190
+	E190_cruiseData = {}
+	E190_cruiseData["rho"] = rho["h = 36000 ft"]
+	E190_cruiseData["a"] = a["h = 36000 ft"]
+	E190_cruiseData["M"] = np.linspace(0.6,0.9,num_pts)*ureg.dimensionless
+	E190_cruiseData["V"] = E190_cruiseData["M"] * E190_cruiseData["a"]
+	E190_cruiseData["CL"] = (2*E190["W_DG"]) \
+		/ (E190_cruiseData["rho"] * E190_cruiseData["V"]**2 * E190["S"])
+	E190_cruiseData["CL"] = E190_cruiseData["CL"].to(ureg.dimensionless)
+	E190_cruiseData["CD"] = E190["CD0"] + E190["K"]*E190_cruiseData["CL"]**2
+	E190_cruiseData["L/D"] = E190_cruiseData["CL"] / E190_cruiseData["CD"]
+	E190_cruiseData["sqrt(M)*L/D"] = np.sqrt(E190_cruiseData["M"]) * E190_cruiseData["L/D"]
+
+	#Plotting commands
+	plt.ion()
+	fig1 = plt.figure(figsize=(12, 6), dpi=100)
+	plt.show()
+
+	#L/D vs. V plot for the Cessna 310
+	plt.subplot(1,2,1)
+	plt.plot(cessna_310_cruiseData["V"].to(ureg.knots).magnitude,
+		cessna_310_cruiseData["L/D"].to(ureg.dimensionless).magnitude,
+    	color="black", linewidth=3, linestyle="-", #marker='s', markersize=8,
+    	label='Analysis results')		 
+	plt.grid()
+	plt.xlabel('Cruise speed $V$ (knots)', fontsize = 16)
+	plt.ylabel('$L/D$', fontsize = 18)
+	plt.title("$L/D$ vs. $V$  for the Cessna 310",fontsize = 20)
+	#plt.legend(numpoints = 1,loc='lower left', fontsize = 12)
+	plt.xlim(xmax = 220)
+	plt.ylim(ymin = 5)
+	
+	#sqrt(M)*L/D vs. M plot for the Embraer E190
+	plt.subplot(1,2,2)
+	plt.plot(E190_cruiseData["M"].to(ureg.dimensionless).magnitude,
+		E190_cruiseData["sqrt(M)*L/D"].to(ureg.dimensionless).magnitude,
+    	color="black", linewidth=3, linestyle="-", #marker='s', markersize=8,
+    	label='Analysis results')		 
+	plt.grid()
+	plt.xlabel('Cruise Mach number $M$', fontsize = 16)
+	plt.ylabel('$\sqrt{M} L/D$', fontsize = 18)
+	plt.title("$\sqrt{M} L/D$ vs. $M$  for the Embraer E190",fontsize = 20)
+	#plt.legend(numpoints = 1,loc='lower left', fontsize = 12)
+	plt.ylim(ymin = 11)
+
+	plt.tight_layout()#makes sure subplots are spaced neatly
+	plt.subplots_adjust(left=0.06,right=0.95,bottom=0.1,top = 0.9)#adds space at the top for the title
+
 	#Print results to command line
 	print ""
 	print "Analysis of the Embraer 190 (h = 36,000 ft)"
@@ -109,9 +167,6 @@ if __name__ == "__main__":
 		(cessna_310["V_maxRange"].to(ft_per_s).magnitude, cessna_310["V_maxRange"].to(ureg.knot).magnitude)
 	print "M for maximum range: %0.4f" % cessna_310["M_maxRange"].magnitude
 	
-
-	
-
 	#Save results to file
 	output_data = open("cruise_speed_analysis_data.txt","w")
 
@@ -125,3 +180,4 @@ if __name__ == "__main__":
 
 	output_data.close()
 	
+
