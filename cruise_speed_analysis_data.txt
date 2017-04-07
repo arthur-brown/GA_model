@@ -1,4 +1,4 @@
-Analysis of the Cessna 310 (h = 7,500 ft)
+Analysis of the Cessna 310 (h = 10,000 ft)
 
 	e: 0.8170 dimensionless
 	K: 0.0557 dimensionless
@@ -6,9 +6,9 @@ Analysis of the Cessna 310 (h = 7,500 ft)
 	S: 175.0000 foot ** 2
 	AR: 7.0000 dimensionless
 	CD0: 0.0300 dimensionless
-	V_maxRange: 199.4531 foot / second
-	V_maxRange_knots: 118.1728 knot
-	M_maxRange: 0.1834 dimensionless
+	V_maxRange: 207.2778 foot / second
+	V_maxRange_knots: 122.8087 knot
+	M_maxRange: 0.1924 dimensionless
 	W_DG: 4830.0000 force_pound
 
 Analysis of the Embraer 190 (h = 36,000 ft)
