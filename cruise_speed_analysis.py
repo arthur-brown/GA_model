@@ -75,12 +75,14 @@ if __name__ == "__main__":
 	E190["V_maxRange"], E190["CL_maxRange"] = max_range(W=E190["W_DG"],\
 		rho=rho["h = 36000 ft"],S=E190["S"],CD0=E190["CD0"],K=E190["K"],aircraftType="jet")
 	E190["V_maxRange"] = E190["V_maxRange"].to(ft_per_s)
+	E190["V_maxRange_knots"] = E190["V_maxRange"].to(ureg.knots)
 	E190["M_maxRange"] = E190["V_maxRange"] / a["h = 36000 ft"]
 
 	#Maximum-range computations for the Cessna 310 (h = 7,500 ft)
 	cessna_310["V_maxRange"], cessna_310["CL_maxRange"] = max_range(W=cessna_310["W_DG"],\
 		rho=rho["h = 7500 ft"],S=cessna_310["S"],CD0=cessna_310["CD0"],K=cessna_310["K"],aircraftType="prop")
 	cessna_310["V_maxRange"] = cessna_310["V_maxRange"].to(ft_per_s)
+	cessna_310["V_maxRange_knots"] = cessna_310["V_maxRange"].to(ureg.knots)
 	cessna_310["M_maxRange"] = cessna_310["V_maxRange"] / a["h = 7500 ft"]
 
 	#L/D vs. V computations for the Cessna 310
@@ -144,18 +146,6 @@ if __name__ == "__main__":
 
 	#Print results to command line
 	print ""
-	print "Analysis of the Embraer 190 (h = 36,000 ft)"
-	print ""
-	print "W_DG: %0.0f lbs" % E190["W_DG"].to(ureg.lbf).magnitude
-	print "S: %0.0f ft^2" % E190["S"].to(square_foot).magnitude
-	print "CD0: %0.4f" % E190["CD0"]
-	print "K: %0.4f" % E190["K"]
-	print "CL for maximum range: %0.4f" % E190["CL_maxRange"]
-	print "V for maximum range: %0.0f ft/s (%0.0f knots)" % \
-		(E190["V_maxRange"].to(ft_per_s).magnitude, E190["V_maxRange"].to(ureg.knot).magnitude)
-	print "M for maximum range: %0.4f" % E190["M_maxRange"].magnitude
-
-	print ""
 	print "Analysis of the Cessna 310 (h = 7,500 ft)"
 	print ""
 	print "W_DG: %0.0f lbs" % cessna_310["W_DG"].to(ureg.lbf).magnitude
@@ -166,17 +156,29 @@ if __name__ == "__main__":
 	print "V for maximum range: %0.1f ft/s (%0.1f knots)" % \
 		(cessna_310["V_maxRange"].to(ft_per_s).magnitude, cessna_310["V_maxRange"].to(ureg.knot).magnitude)
 	print "M for maximum range: %0.4f" % cessna_310["M_maxRange"].magnitude
+
+	print ""
+	print "Analysis of the Embraer 190 (h = 36,000 ft)"
+	print ""
+	print "W_DG: %0.0f lbs" % E190["W_DG"].to(ureg.lbf).magnitude
+	print "S: %0.0f ft^2" % E190["S"].to(square_foot).magnitude
+	print "CD0: %0.4f" % E190["CD0"]
+	print "K: %0.4f" % E190["K"]
+	print "CL for maximum range: %0.4f" % E190["CL_maxRange"]
+	print "V for maximum range: %0.0f ft/s (%0.0f knots)" % \
+		(E190["V_maxRange"].to(ft_per_s).magnitude, E190["V_maxRange"].to(ureg.knot).magnitude)
+	print "M for maximum range: %0.4f" % E190["M_maxRange"].magnitude
 	
 	#Save results to file
 	output_data = open("cruise_speed_analysis_data.txt","w")
 
-	output_data.write("Analysis of the Embraer 190 (h = 36,000 ft)\n\n")
-	for key in E190.keys():
-		output_data.write("\t%s: %0.4f %s\n" % (key, E190[key].magnitude, E190[key].units))
-
-	output_data.write("\nAnalysis of the Cessna 310 (h = 7,500 ft)\n\n")
+	output_data.write("Analysis of the Cessna 310 (h = 7,500 ft)\n\n")
 	for key in cessna_310.keys():
 		output_data.write("\t%s: %0.4f %s\n" % (key, cessna_310[key].magnitude, cessna_310[key].units))
+
+	output_data.write("\nAnalysis of the Embraer 190 (h = 36,000 ft)\n\n")
+	for key in E190.keys():
+		output_data.write("\t%s: %0.4f %s\n" % (key, E190[key].magnitude, E190[key].units))
 
 	output_data.close()
 	

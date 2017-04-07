@@ -1,3 +1,16 @@
+Analysis of the Cessna 310 (h = 7,500 ft)
+
+	e: 0.8170 dimensionless
+	K: 0.0557 dimensionless
+	CL_maxRange: 0.7342 dimensionless
+	S: 175.0000 foot ** 2
+	AR: 7.0000 dimensionless
+	CD0: 0.0300 dimensionless
+	V_maxRange: 199.4531 foot / second
+	V_maxRange_knots: 118.1728 knot
+	M_maxRange: 0.1834 dimensionless
+	W_DG: 4830.0000 force_pound
+
 Analysis of the Embraer 190 (h = 36,000 ft)
 
 	e: 0.8547 dimensionless
@@ -12,17 +25,6 @@ Analysis of the Embraer 190 (h = 36,000 ft)
 	CD0: 0.0199 dimensionless
 	CD_wing: 0.0295 dimensionless
 	CD0_wing: 0.0074 dimensionless
+	V_maxRange_knots: 440.6917 knot
 	M_maxRange: 0.7680 dimensionless
 	W_DG: 105822.0000 force_pound
-
-Analysis of the Cessna 310 (h = 7,500 ft)
-
-	e: 0.8170 dimensionless
-	K: 0.0557 dimensionless
-	CL_maxRange: 0.7342 dimensionless
-	S: 175.0000 foot ** 2
-	AR: 7.0000 dimensionless
-	CD0: 0.0300 dimensionless
-	V_maxRange: 199.4531 foot / second
-	M_maxRange: 0.1834 dimensionless
-	W_DG: 4830.0000 force_pound
