@@ -127,7 +127,8 @@ class VerticalFin(Model):
 class Engines(Model): #Fixed engine only for now
     def setup(self,aircraft,engineType):
         # Engine-related variables & constants
-        num_engines = Variable("num_engines",2,"-","Number of engines")
+       	num_engines = Variable("num_engines",2,"-","Number of engines")
+       	num_OEI_engines = Variable("num_OEI_engines",1,"-","Number of engines under OEI")
         eta_prop = Variable("eta_prop",0.8,'-',"Propeller efficiency")
         SFC = Variable("SFC",6.94e-8,"s**2/m**2",\
             "Engine power-specific fuel consumption") # careful with unit conversion
@@ -136,7 +137,21 @@ class Engines(Model): #Fixed engine only for now
         Swet = Variable("Swet",0,"m^2","Wetted area of engines")
         P = Variable("P","kW","Engine power")
         
+        P_OEI = Variable("P_OEI","kW","One-engine-out power")
+        A_disk = Variable("A_disk","ft^2","Propeller disk area")
+        DQ_prop = Variable("DQ_prop","ft^2","Windmilling-propeller drag area")
+        D = Variable("D",6.375,"ft","Propeller diameter")
+        s = Variable("s","-","Propeller solidity")
+        B = Variable("B",3,"-","Number of propeller blades")
+        
         constraints = []
+
+        #windmilling-propeller drag
+        constraints += [A_disk == math.pi * (D**2)/4,
+        	s == 0.04*B, DQ_prop == 0.1*s*A_disk]#Raymer model
+
+        #One-engine-out available power
+        constraints += [P_OEI == P * num_OEI_engines/num_engines]
 
         #Fixed-engine parameters
         if engineType == "fixed":
@@ -144,6 +159,7 @@ class Engines(Model): #Fixed engine only for now
             m_engine = Variable("m_engine",1.4*227,"kg","Installed engine mass (1 engine)")
             constraints += [W == g * num_engines * m_engine,
                 P == P_fixedEngine]
+
         #Rubber-engine parameters
         elif engineType == "rubber":
             K_p = Variable("K_p",1.4*9.2e-3,"N/W","Engine-weight scale factor (Newtons per watt)")
