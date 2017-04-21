@@ -30,8 +30,12 @@ GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
 GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,Vstall_kts=stall_speed_kts)
 GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,Vstall_kts=stall_speed_kts)
 
+GA_OEI_ClimbConstraint_fixedEngine = OEI_ClimbConstraint(GA_aircraft_fixedEngine)
+
 constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
-                            GA_takeoffConstraint_fixedEngine, GA_stallSpeedConstraint_fixedEngine]
+                            GA_takeoffConstraint_fixedEngine, GA_stallSpeedConstraint_fixedEngine,
+                            GA_OEI_ClimbConstraint_fixedEngine]
+
 constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
                             GA_takeoffConstraint_rubberEngine, GA_stallSpeedConstraint_rubberEngine]
 

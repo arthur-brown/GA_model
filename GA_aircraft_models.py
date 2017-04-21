@@ -16,6 +16,14 @@ class Aircraft(Model): #Overall vehicle model
         W_fuel = Variable("W_fuel","lbf","Fuel weight")
         W_TO = Variable("W_TO","lbf","Takeoff weight")
 
+        CLmax_cruise = Variable("CLmax_cruise",1.6,"-","Maximum lift coefficient (cruise)")
+        CLmax_TO = Variable("CLmax_TO",2.0,"-","Maximum lift coefficient (takeoff)")
+        CLmax_LDG = Variable("CLmax_LDG",2.6,"-","Maximum lift coefficient (landing)")
+
+        self.CLmax_cruise = CLmax_cruise
+        self.CLmax_TO = CLmax_TO
+        self.CLmax_LDG = CLmax_LDG
+
         self.g = Variable("g",9.807,"m/s**2","Gravitational constant")    
         self.Swet = Variable("Swet","m^2","Aircraft wetted area")
         self.W_TO = W_TO
@@ -135,9 +143,9 @@ class Engines(Model): #Fixed engine only for now
         g = aircraft.g
         W = Variable("W","N","Engine(s) weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of engines")
-        P = Variable("P","kW","Engine power")
+        P = Variable("P","hp","Engine power")
         
-        P_OEI = Variable("P_OEI","kW","One-engine-out power")
+        P_OEI = Variable("P_OEI","hp","One-engine-out power")
         A_disk = Variable("A_disk","ft^2","Propeller disk area")
         DQ_prop = Variable("DQ_prop","ft^2","Windmilling-propeller drag area")
         D = Variable("D",6.375,"ft","Propeller diameter")
@@ -301,9 +309,6 @@ class Aerodynamics(Model):
 
         c_fe = Variable("c_fe",0.0045,"-","Equivalent skin-friction coefficient (twin-engined GA)")
         e = Variable("e",0.8,"-","Oswald efficiency factor")
-        CLmax_cruise = Variable("CLmax_cruise",1.6,"-","Maximum lift coefficient (cruise)")
-        CLmax_TO = Variable("CLmax_TO",2.0,"-","Maximum lift coefficient (takeoff)")
-        CLmax_LDG = Variable("CLmax_LDG",2.6,"-","Maximum lift coefficient (landing)")
 
         CL = Variable("C_L","-","Lift coefficient")
         CD = Variable("C_D","-","Drag coefficient")
@@ -315,7 +320,7 @@ class Aerodynamics(Model):
 
         if stateType == "cruise":
             #lift
-            constraints += [CL <= CLmax_cruise]
+            constraints += [CL <= aircraft["CLmax_cruise"]]
 
             #drag
             constraints += [CD0 == c_fe * aircraft.Swet / aircraft.wing["S"],
@@ -323,12 +328,28 @@ class Aerodynamics(Model):
         
         if stateType == "takeoff":
             #lift
-            constraints += [CL == CLmax_TO] #not actually used
+            constraints += [CL == aircraft["CLmax_TO"]] #not actually used
 
             #drag
             constraints += [CD0 >= c_fe * aircraft.Swet / aircraft.wing["S"] + aircraft.landing_gear["CDA_gear"]/aircraft.wing["S"],
                             CD >= CD0]#induced drag not counted; lift assumed 0 prior to rotation
         
+        if stateType == "landing":
+            #lift
+            constraints += [CL == aircraft["CLmax_LDG"]]
+
+            #drag
+            constraints += [CD0 >= c_fe * aircraft.Swet / aircraft.wing["S"] + aircraft.landing_gear["CDA_gear"]/aircraft.wing["S"],
+                            CD >= CD0]#induced drag not counted
+
+        if stateType == "OEI_climb":#climb after takeoff with one engine out and gear retracted
+            #lift
+            constraints += [CL <= aircraft["CLmax_TO"]] 
+
+            #drag
+            constraints += [CD0 >= c_fe * aircraft.Swet / aircraft.wing["S"] + aircraft.engines["DQ_prop"]/aircraft.wing["S"],
+                            CD >= CD0 + CDi]#includes wingmilling-propeller drag
+
         return constraints
 
 
@@ -349,7 +370,12 @@ class FlightState(Model):
             h = Variable("h",0,"ft","Altitude")
             rho = Variable("rho",1.225,"kg/m^3","Air density")
             constraints += [h == h, rho == rho]
-
+        
+        if stateType == "OEI_altitude":
+        	h = Variable("h",5000,"ft","Altitude")
+        	rho = Variable("rho",1.05555,"kg/m^3","Air density")
+        	constraints += [h == h, rho == rho]
+        
         return constraints 
 
 class TakeoffDistance(Model):
@@ -387,18 +413,58 @@ class StallSpeed(Model):
 
 		self.aircraft = aircraft
 		self.state = state
-		self.aerodynamics = Aerodynamics(aircraft,stateType="takeoff")
 
 		W_half = Variable("W_{half}","lbf","Weight at 50% cruise (approximate")
 
 		Vstall = Variable("Vstall","knots","Sea-level stalling speed (knots)")
 		Vstall_req = Variable("Vstall_req",Vstall_kts,"knots","Sea-level stalling speed requirement (knots)")
-		CLmax = self.aerodynamics["CLmax_cruise"]
+		CLmax = self.aircraft["CLmax_cruise"]
 
 		constraints = []
+		constraints += [self.state]
 
 		constraints += [W_half >= aircraft["W_ZF"] + 0.5*aircraft["W_fuel"],
 						Vstall == ((2**0.5 * W_half**0.5)/(self.state["rho"]**0.5 * self.aircraft["S"]**0.5 * CLmax**0.5)),
 						Vstall <= Vstall_req]
+
+		return constraints
+
+class OEI_ClimbConstraint(Model):
+
+	#one-engine-inoperative climb constraint, as required by law
+	def setup(self,aircraft):
+		self.aircraft = aircraft
+		self.takeoff_state = FlightState(stateType="takeoff")
+		self.VS0_state = FlightState(stateType="OEI_altitude")
+
+		self.OEI_climb_aero = Aerodynamics(aircraft,stateType="OEI_climb")
+
+		V = Variable("V","knots","Airspeed")
+		V_v = Variable("V_v","knots","Vertical speed")
+		gamma = Variable("\gamma","-","Climb angle (radians)")
+		T = Variable("T","lbf","Thrust available")
+		D = Variable("D","lbf","Drag")
+		VS0 = Variable("VS0","knots","Stall speed (landing configuration, h=5,000 ft")
+
+		CL = self.OEI_climb_aero["C_L"]
+		CLmax_LDG = aircraft["CLmax_LDG"] #stall speed in landing configuration
+		
+		P = aircraft.engines["P_OEI"]
+		W = aircraft["W_TO"]
+		rho_SL = self.takeoff_state["rho"]
+		rho_VS0 = self.VS0_state["rho"]
+		S = aircraft.wing["S"]
+		CD = self.OEI_climb_aero["C_D"]
+
+		constraints = []
+		constraints += [self.takeoff_state, self.VS0_state, self.OEI_climb_aero]
+
+		constraints += [T == aircraft.engines["eta_prop"]*P/V,
+			CL == 2*W / (rho_SL*(V**2)*S),
+			D == 0.5 * rho_SL*(V**2)*S * CD,
+			VS0 == (2*W/(rho_VS0*S*CLmax_LDG))**0.5,
+			V_v >= 0.027*VS0,
+			T >= gamma*W + D,
+			gamma == V_v / V]
 
 		return constraints
