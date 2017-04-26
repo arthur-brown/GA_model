@@ -225,7 +225,7 @@ class AllOtherWeights(Model):
 
 
 class Mission(Model):
-    def setup(self,aircraft,missionLength_nm=1200,numCruiseSegments=3):
+    def setup(self,aircraft,missionLength_nm=1200,numCruiseSegments=3,cruiseSpeed_kts=180):
         
         self.aircraft = aircraft
         W_TO = aircraft["W_TO"]
@@ -238,7 +238,7 @@ class Mission(Model):
         segment_range = mission_range/numCruiseSegments
 
         with Vectorize(numCruiseSegments):
-        	fs = FlightSegment(aircraft,segment_range)
+        	fs = FlightSegment(aircraft=aircraft,segmentRange=segment_range,cruiseSpeed_kts=cruiseSpeed_kts)
 
         Wburn = fs.aircraftp["W_{burn}"]
         Wfuel = fs.aircraftp["W_{fuel}"]
@@ -260,11 +260,11 @@ class Mission(Model):
 class FlightSegment(Model):
     "Combines a flight state and an aircraft"
 
-    def setup(self,aircraft,segmentRange):
+    def setup(self,aircraft,segmentRange,cruiseSpeed_kts):
 
         constraints = []
 
-        self.flightstate = FlightState()
+        self.flightstate = FlightState("cruise",cruiseSpeed_kts)
         self.aircraftp = aircraft.dynamic(self.flightstate,segmentRange)
 
         constraints += [self.flightstate, self.aircraftp]
@@ -280,6 +280,7 @@ class AircraftPerformance(Model):
 
         Wfuel = Variable("W_{fuel}","lbf","Fuel weight (at beginning of segment)")
         Wburn = Variable("W_{burn}","lbf","Fuel burned during segment")
+        L = Variable("L","lbf","Segment lift")
         CL = self.aerodynamics["C_L"]
         CD = self.aerodynamics["C_D"]
         
@@ -289,15 +290,15 @@ class AircraftPerformance(Model):
         constraints += [self.aerodynamics]
 
         #lift >= weight
-        constraints += [0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CL >= aircraft["W_ZF"] + Wfuel]
+        constraints += [L == 0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CL,
+        				L >= aircraft["W_ZF"] + Wfuel]
 
         #Breguet range (Taylor)
         z = (g * segmentRange * aircraft.engines["SFC"] * CD) / (aircraft.engines["eta_prop"] * CL)
         constraints += [Wburn >= (z + z**2/np.math.factorial(2)
             + z**3/np.math.factorial(3)
-            + z**4/np.math.factorial(4)) * (aircraft["W_ZF"]+Wfuel)] 
+            + z**4/np.math.factorial(4)) * L] 
         
-        constraints += [self.aerodynamics]
         return constraints
 
 class Aerodynamics(Model):
@@ -356,12 +357,12 @@ class Aerodynamics(Model):
 class FlightState(Model):
     
     "Context for flight physics"
-    def setup(self,stateType="cruise"):
+    def setup(self,stateType="cruise",cruiseSpeed_kts=180):
         
         constraints = []
 
         if stateType == "cruise":
-            V = Variable("V",180,"knots","Airspeed")
+            V = Variable("V",cruiseSpeed_kts,"knots","Airspeed")
             h = Variable("h",8000,"ft","Altitude")
             rho = Variable("rho",0.96287,"kg/m^3","Air density")
             constraints += [V == V, h == h, rho == rho]
@@ -434,37 +435,35 @@ class OEI_ClimbConstraint(Model):
 	#one-engine-inoperative climb constraint, as required by law
 	def setup(self,aircraft):
 		self.aircraft = aircraft
-		self.takeoff_state = FlightState(stateType="takeoff")
-		self.VS0_state = FlightState(stateType="OEI_altitude")
-
-		self.OEI_climb_aero = Aerodynamics(aircraft,stateType="OEI_climb")
+		self.state = FlightState(stateType="takeoff")
+		self.aerodynamics = Aerodynamics(aircraft,stateType="OEI_climb")
 
 		V = Variable("V","knots","Airspeed")
 		V_v = Variable("V_v","knots","Vertical speed")
 		gamma = Variable("\gamma","-","Climb angle (radians)")
 		T = Variable("T","lbf","Thrust available")
 		D = Variable("D","lbf","Drag")
-		VS0 = Variable("VS0","knots","Stall speed (landing configuration, h=5,000 ft")
+		V_stall = Variable("V_stall","knots","Stall speed at takeoff")
 
-		CL = self.OEI_climb_aero["C_L"]
-		CLmax_LDG = aircraft["CLmax_LDG"] #stall speed in landing configuration
-		
+		CLmax_TO = aircraft["CLmax_TO"]
 		P = aircraft.engines["P_OEI"]
 		W = aircraft["W_TO"]
-		rho_SL = self.takeoff_state["rho"]
-		rho_VS0 = self.VS0_state["rho"]
 		S = aircraft.wing["S"]
-		CD = self.OEI_climb_aero["C_D"]
+		
+		rho = self.state["rho"]
+		CL = self.aerodynamics["C_L"]
+		CD = self.aerodynamics["C_D"]
 
 		constraints = []
-		constraints += [self.takeoff_state, self.VS0_state, self.OEI_climb_aero]
+		constraints += [self.state, self.aerodynamics]
 
 		constraints += [T == aircraft.engines["eta_prop"]*P/V,
-			CL == 2*W / (rho_SL*(V**2)*S),
-			D == 0.5 * rho_SL*(V**2)*S * CD,
-			VS0 == (2*W/(rho_VS0*S*CLmax_LDG))**0.5,
-			V_v >= 0.027*VS0,
+			CL == 2*W / (rho*(V**2)*S),
+			D == 0.5 * rho*(V**2)*S * CD,
 			T >= gamma*W + D,
-			gamma == V_v / V]
+			gamma == V_v / V,
+			gamma >= 0.01,#regulations say "demonstratably positive"
+			V == 1.3*V_stall,#used by Joby.
+			V_stall == (2*W/(rho*S*CLmax_TO))**0.5]
 
 		return constraints
