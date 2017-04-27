@@ -5,6 +5,7 @@
 import math
 import numpy as np
 from gpkit import Variable, VectorVariable, Model, Vectorize
+import pint
 
 class Aircraft(Model): #Overall vehicle model
           
@@ -62,17 +63,17 @@ class Fuselage(Model):
         weight_multiplier_fuse = Variable("weight_multiplier_fuse",7,
             "kg/m^2","Fuselage weight multiplier")
         Swet = Variable("Swet",43.6,"m^2","Fuselage wetted area")
-        W = Variable("W","N","Fuselage weight")
+        W = Variable("W","lbf","Fuselage weight")
 
         return [W == g * weight_multiplier_fuse * Swet]
 
 class Wing(Model):
     def setup(self,aircraft):
-        W = Variable("W","N","Wing weight")
-        S = Variable("S","m^2","Wing reference area")
-        b = Variable("b","m","Wingspan")
+        W = Variable("W","lbf","Wing weight")
+        S = Variable("S","ft^2","Wing reference area")
+        b = Variable("b","ft","Wingspan")
         AR = Variable("AR","-","Aspect ratio")
-        MAC = Variable("MAC","m","Mean aerodynamic chord")
+        MAC = Variable("MAC","ft","Mean aerodynamic chord")
         Swet = Variable("Swet","m^2","Wing wetted area")
         t_c = Variable("t_c",0.15,"-","Thickness-to-chord ratio")
         N_lim = Variable("N_lim",3.5,"-","Limit load factor")
@@ -110,7 +111,7 @@ class Tailplane(Model):
         weight_multiplier_tail = Variable("weight_multiplier_tail",10,
             "kg/m^2","Tail weight multiplier")
         g = aircraft.g
-        W = Variable("W","N","Tailplane weight")
+        W = Variable("W","lbf","Tailplane weight")
 
         return [Swet >= 1.6*S_HT*(1+0.25*t_c),
             W == g * weight_multiplier_tail * S_HT]
@@ -127,7 +128,7 @@ class VerticalFin(Model):
         weight_multiplier_tail = Variable("weight_multiplier_tail",10,
             "kg/m^2","Tail weight multiplier")
         g = aircraft.g
-        W = Variable("W","N","Vertical-fin weight")
+        W = Variable("W","lbf","Vertical-fin weight")
 
         return [Swet >= 1.6*S_VT*(1+0.25*t_c),
             W == g * weight_multiplier_tail * S_VT]
@@ -141,9 +142,9 @@ class Engines(Model): #Fixed engine only for now
         SFC = Variable("SFC",6.94e-8,"s**2/m**2",\
             "Engine power-specific fuel consumption") # careful with unit conversion
         g = aircraft.g
-        W = Variable("W","N","Engine(s) weight")
+        W = Variable("W","lbf","Engine(s) weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of engines")
-        P = Variable("P","hp","Engine power")
+        P = Variable("P","hp","Engine(s) available power")
         
         P_OEI = Variable("P_OEI","hp","One-engine-out power")
         A_disk = Variable("A_disk","ft^2","Propeller disk area")
@@ -163,15 +164,15 @@ class Engines(Model): #Fixed engine only for now
 
         #Fixed-engine parameters
         if engineType == "fixed":
-            P_fixedEngine = Variable("P_fixedEngine",242,"kW","Engine power (fixed engine)")
+            P_fixedEngine = Variable("P_fixedEngine",325,"hp","Power from 1 (fixed) engine")
             m_engine = Variable("m_engine",1.4*227,"kg","Installed engine mass (1 engine)")
             constraints += [W == g * num_engines * m_engine,
-                P == P_fixedEngine]
+                P == num_engines*P_fixedEngine]
 
         #Rubber-engine parameters
         elif engineType == "rubber":
             K_p = Variable("K_p",1.4*9.2e-3,"N/W","Engine-weight scale factor (Newtons per watt)")
-            constraints += [W == num_engines * K_p * P]
+            constraints += [W == K_p * P]
 
         return constraints
 
@@ -181,14 +182,14 @@ class Nacelles (Model):
         Swet_oneNacelle = Variable("Swet_oneNacelle",8.172,"m^2","Wetted area of 1 nacelle")
         num_nacelles = Variable("num_nacelles",2,"-","Number of nacelles")
         Swet = Variable("Swet","m^2","Wetted area of nacelles")
-        W = Variable("W",0,"N","Nacelle weight")
+        W = Variable("W",0,"lbf","Nacelle weight")
         return [Swet == num_nacelles * Swet_oneNacelle]
 
 
 class LandingGear(Model):
     def setup(self,aircraft):
         CDA_gear = Variable("CDA_gear",1.149,"m^2","Landing-gear drag area")
-        W = Variable("W","N","Landing-gear weight")
+        W = Variable("W","lbf","Landing-gear weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of landing gear")#not included in cruise drag estimate
 
         return [W == 0.057*aircraft.W_TO]           
@@ -199,7 +200,7 @@ class Crew(Model):
         num_crew = Variable("num_crew",2,"-","Number of crew members")
         crew_mass = Variable("crew_mass",200,"lbs","Mass per crew member")
         g = aircraft.g
-        W = Variable("W","N","Crew weight")
+        W = Variable("W","lbf","Crew weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of crew")
         
         return [W == g * num_crew * crew_mass]
@@ -211,7 +212,7 @@ class Passengers(Model):
         passenger_mass = Variable("passenger_mass",180+40,"lbs",
             "Mass per passenger (including baggage)")
         g = aircraft.g
-        W = Variable("W","N","Passenger weight")
+        W = Variable("W","lbf","Passenger weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of passengers")
         
         return [W == g * num_passengers * passenger_mass]
@@ -219,7 +220,7 @@ class Passengers(Model):
 
 class AllOtherWeights(Model):
     def setup(self,aircraft):
-        W = Variable("W","N","Landing-gear weight")
+        W = Variable("W","lbf","Landing-gear weight")
         Swet = Variable("Swet",0,"m^2","Wetted area of everything else")
         return [W == 0.1*aircraft.W_TO]
 
@@ -467,3 +468,57 @@ class OEI_ClimbConstraint(Model):
 			V_stall == (2*W/(rho*S*CLmax_TO))**0.5]
 
 		return constraints
+
+#debugging script
+if __name__ == "__main__":
+	# Set up units
+	ureg = pint.UnitRegistry()
+
+	takeoff_distance_ft = 1763
+	range_nm = 1200
+	N = 5 #number of cruise segments
+	stall_speed_kts = 78
+	cruise_speed_kts = 180
+
+	GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
+	GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
+
+	GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,
+		missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
+	GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,
+		missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
+
+	GA_takeoffConstraint_fixedEngine = TakeoffDistance(GA_aircraft_fixedEngine,
+    	s_TO_ft=takeoff_distance_ft)
+	GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
+    	s_TO_ft=takeoff_distance_ft)
+
+	GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,
+		Vstall_kts=stall_speed_kts)
+	GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,
+		Vstall_kts=stall_speed_kts)
+
+	GA_OEI_ClimbConstraint_fixedEngine = OEI_ClimbConstraint(GA_aircraft_fixedEngine)
+	GA_OEI_ClimbConstraint_rubberEngine = OEI_ClimbConstraint(GA_aircraft_rubberEngine)
+
+	constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
+                            GA_takeoffConstraint_fixedEngine, 
+                            GA_stallSpeedConstraint_fixedEngine]
+                            #,GA_OEI_ClimbConstraint_fixedEngine]
+
+	constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
+                            GA_takeoffConstraint_rubberEngine, 
+                            GA_stallSpeedConstraint_rubberEngine,
+                            GA_OEI_ClimbConstraint_rubberEngine]
+
+	GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,
+		constraints_fixedEngine)
+	GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,
+		constraints_rubberEngine)
+
+	GA_solution_fixedEngine = GA_model_fixedEngine.solve(verbosity=0)
+	GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
+
+	#print GA_solution_fixedEngine.summary()
+	print GA_solution_rubberEngine.summary()
+

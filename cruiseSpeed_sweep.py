@@ -81,7 +81,7 @@ cessna_402_data = {'W_TO':7210*ureg.lbf,
     "range":1234*ureg.nautical_mile,
     "P":GA_aircraft_fixedEngine.engines["P_fixedEngine"].value}
 
-fig1 = plt.figure(figsize=(16, 12), dpi=80)
+fig1 = plt.figure(figsize=(14, 8), dpi=80)
 plt.show()
 
 
@@ -101,8 +101,8 @@ plt.xlabel('Cruising speed (knots)', fontsize = 16)
 plt.ylabel('MTOW (lbs)', fontsize = 16)
 plt.title("Maximum Takeoff Weight vs. Cruising Speed",fontsize = 20)
 plt.legend(numpoints = 1,loc='lower left', fontsize = 12)
-#plt.xlim(xmin = np.min())
-plt.ylim(ymin = 0)
+#plt.xlim()
+plt.ylim(ymin = 0, ymax = 9000)
 
 #Fuel Weight vs. Cruising Speed
 plt.subplot(1,2,2)

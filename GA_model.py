@@ -35,11 +35,13 @@ GA_OEI_ClimbConstraint_fixedEngine = OEI_ClimbConstraint(GA_aircraft_fixedEngine
 GA_OEI_ClimbConstraint_rubberEngine = OEI_ClimbConstraint(GA_aircraft_rubberEngine)
 
 constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
-                            GA_takeoffConstraint_fixedEngine, GA_stallSpeedConstraint_fixedEngine]
-                            #,GA_OEI_ClimbConstraint_fixedEngine]
+                            GA_takeoffConstraint_fixedEngine, 
+                            GA_stallSpeedConstraint_fixedEngine,
+                            GA_OEI_ClimbConstraint_fixedEngine]
 
 constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
-                            GA_takeoffConstraint_rubberEngine, GA_stallSpeedConstraint_rubberEngine,
+                            GA_takeoffConstraint_rubberEngine, 
+                            GA_stallSpeedConstraint_rubberEngine,
                             GA_OEI_ClimbConstraint_rubberEngine]
 
 GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,constraints_fixedEngine)
@@ -58,13 +60,17 @@ GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
 plt.ion()
 
 # Cessna 402 data
+
+P_available = GA_aircraft_fixedEngine.engines["P_fixedEngine"].value \
+     * GA_aircraft_fixedEngine.engines["num_engines"].value
+
 cessna_402_data = {'W_TO':7210*ureg.lbf,
 	"W_fuel":1278*ureg.lbf,
     "W_wing":860*ureg.lbf,#Cessna 404 (not 402)
 	"b":13.44*ureg.m,
 	"AR":8.6,
 	"range":1234*ureg.nautical_mile,
-    "P":GA_aircraft_fixedEngine.engines["P_fixedEngine"].value}
+    "P":P_available}
 
 fig1 = plt.figure(figsize=(16, 12), dpi=80)
 plt.show()
@@ -201,7 +207,7 @@ plt.title("Engine Power",fontsize = 20)
 plt.legend(numpoints=1, loc='lower right', fontsize = 12)
 plt.xlim(xmin = np.min(GA_solution_rubberEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude),
      xmax = np.max(GA_solution_rubberEngine["sweepvariables"]["Range"].to(ureg.nautical_mile).magnitude))
-plt.ylim(ymin = 0)
+plt.ylim(ymin = 0, ymax = 800)
 
 
 title_str = "Key Design Variables vs. Mission Range for a Twin-Engined GA Aircraft"
