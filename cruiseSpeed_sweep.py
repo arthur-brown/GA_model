@@ -12,7 +12,7 @@ from GA_aircraft_models import *
 ureg = pint.UnitRegistry()
 
 takeoff_distance_ft = 1763
-range_nm = 1200#np.linspace(1000,2000,10)
+range_nm = 1000
 N = 5 #number of cruise segments
 stall_speed_kts = 78
 cruise_speed_kts = np.linspace(130,200,10)

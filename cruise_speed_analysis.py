@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
 	#Print results to command line
 	print ""
-	print "Analysis of the Cessna 310 (h = 10,00 ft)"
+	print "Analysis of the Cessna 310 (h = 10,000 ft)"
 	print ""
 	print "W_DG: %0.0f lbs" % cessna_310["W_DG"].to(ureg.lbf).magnitude
 	print "S: %0.0f ft^2" % cessna_310["S"].to(square_foot).magnitude

@@ -281,7 +281,7 @@ class AircraftPerformance(Model):
 
         Wfuel = Variable("W_{fuel}","lbf","Fuel weight (at beginning of segment)")
         Wburn = Variable("W_{burn}","lbf","Fuel burned during segment")
-        L = Variable("L","lbf","Segment lift")
+        W_segment = Variable("W_segment","lbf","Weight at beginning of segment")
         CL = self.aerodynamics["C_L"]
         CD = self.aerodynamics["C_D"]
         
@@ -291,14 +291,14 @@ class AircraftPerformance(Model):
         constraints += [self.aerodynamics]
 
         #lift >= weight
-        constraints += [L == 0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CL,
-        				L >= aircraft["W_ZF"] + Wfuel]
+        constraints += [W_segment == 0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CL,
+        				W_segment >= aircraft["W_ZF"] + Wfuel]
 
         #Breguet range (Taylor)
         z = (g * segmentRange * aircraft.engines["SFC"] * CD) / (aircraft.engines["eta_prop"] * CL)
         constraints += [Wburn >= (z + z**2/np.math.factorial(2)
             + z**3/np.math.factorial(3)
-            + z**4/np.math.factorial(4)) * L] 
+            + z**4/np.math.factorial(4)) * W_segment] 
         
         return constraints
 
@@ -475,7 +475,7 @@ if __name__ == "__main__":
 	ureg = pint.UnitRegistry()
 
 	takeoff_distance_ft = 1763
-	range_nm = 1200
+	range_nm = 1000
 	N = 5 #number of cruise segments
 	stall_speed_kts = 78
 	cruise_speed_kts = 180

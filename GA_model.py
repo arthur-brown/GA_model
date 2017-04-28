@@ -72,7 +72,7 @@ cessna_402_data = {'W_TO':7210*ureg.lbf,
 	"range":1234*ureg.nautical_mile,
     "P":P_available}
 
-fig1 = plt.figure(figsize=(16, 12), dpi=80)
+fig1 = plt.figure(figsize=(18, 11), dpi=80)
 plt.show()
 
 
