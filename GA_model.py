@@ -12,7 +12,7 @@ from GA_aircraft_models import *
 ureg = pint.UnitRegistry()
 
 takeoff_distance_ft = 1763
-range_nm = np.linspace(1000,2000,10)
+range_nm = np.linspace(700,1400,10)
 N = 5 #number of cruise segments
 stall_speed_kts = 78
 cruise_speed_kts = 190
@@ -66,10 +66,10 @@ P_available = GA_aircraft_fixedEngine.engines["P_fixedEngine"].value \
 
 cessna_402_data = {'W_TO':7210*ureg.lbf,
 	"W_fuel":1278*ureg.lbf,
-    "W_wing":860*ureg.lbf,#Cessna 404 (not 402)
+    "W_wing":638*ureg.lbf,#Cessna 414 (not 402). Partially explains weight discrepancy.
 	"b":13.44*ureg.m,
 	"AR":8.6,
-	"range":1234*ureg.nautical_mile,
+	"range":957*ureg.nautical_mile,
     "P":P_available}
 
 fig1 = plt.figure(figsize=(18, 11), dpi=80)
@@ -134,7 +134,7 @@ plt.plot(GA_solution_rubberEngine["sweepvariables"]["Range"].to(ureg.nautical_mi
      label='GPKit model (rubber engine)')
 plt.plot(cessna_402_data["range"].to(ureg.nautical_mile).magnitude,
     cessna_402_data["W_wing"].to(ureg.lbf).magnitude, 
-    marker='o',color="black", markersize=12, label="Cessna 404 (not 402)")
+    marker='o',color="black", markersize=12, label="Cessna 414 (not 402)")
 plt.grid()
 plt.xlabel('Mission range (nm)', fontsize = 16)
 plt.ylabel('Wing weight (lbs)', fontsize = 16)

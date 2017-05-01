@@ -165,13 +165,13 @@ class Engines(Model): #Fixed engine only for now
         #Fixed-engine parameters
         if engineType == "fixed":
             P_fixedEngine = Variable("P_fixedEngine",325,"hp","Power from 1 (fixed) engine")
-            m_engine = Variable("m_engine",1.4*227,"kg","Installed engine mass (1 engine)")
-            constraints += [W == g * num_engines * m_engine,
+            W_engine = Variable("W_engine",733,"lbf","Installed engine weight (1 engine). Scaled from C414.")
+            constraints += [W == num_engines * W_engine,
                 P == num_engines*P_fixedEngine]
 
         #Rubber-engine parameters
         elif engineType == "rubber":
-            K_p = Variable("K_p",1.4*9.2e-3,"N/W","Engine-weight scale factor (Newtons per watt)")
+            K_p = Variable("K_p",2.256,"lbf/hp","Engine-weight scale factor")
             constraints += [W == K_p * P]
 
         return constraints
@@ -182,7 +182,7 @@ class Nacelles (Model):
         Swet_oneNacelle = Variable("Swet_oneNacelle",8.172,"m^2","Wetted area of 1 nacelle")
         num_nacelles = Variable("num_nacelles",2,"-","Number of nacelles")
         Swet = Variable("Swet","m^2","Wetted area of nacelles")
-        W = Variable("W",0,"lbf","Nacelle weight")
+        W = Variable("W",100,"lbf","Nacelle weight (1 nacelle; from C414)")
         return [Swet == num_nacelles * Swet_oneNacelle]
 
 
@@ -364,8 +364,8 @@ class FlightState(Model):
 
         if stateType == "cruise":
             V = Variable("V",cruiseSpeed_kts,"knots","Airspeed")
-            h = Variable("h",8000,"ft","Altitude")
-            rho = Variable("rho",0.96287,"kg/m^3","Air density")
+            h = Variable("h",10000,"ft","Altitude")
+            rho = Variable("rho",0.90464,"kg/m^3","Air density")
             constraints += [V == V, h == h, rho == rho]
 
         if stateType == "takeoff":
@@ -377,6 +377,11 @@ class FlightState(Model):
         	h = Variable("h",5000,"ft","Altitude")
         	rho = Variable("rho",1.05555,"kg/m^3","Air density")
         	constraints += [h == h, rho == rho]
+
+        if stateType == "service_ceiling":
+            h = Variable("h",26900,"ft","Altitude")
+            rho = Variable("rho",0.51302,"kg/m^3","Air density")
+            constraints += [h == h, rho == rho]
         
         return constraints 
 
@@ -431,94 +436,129 @@ class StallSpeed(Model):
 
 		return constraints
 
-class OEI_ClimbConstraint(Model):
+class ClimbConstraint(Model):
 
-	#one-engine-inoperative climb constraint, as required by law
-	def setup(self,aircraft):
-		self.aircraft = aircraft
-		self.state = FlightState(stateType="takeoff")
-		self.aerodynamics = Aerodynamics(aircraft,stateType="OEI_climb")
+    def setup(self,aircraft,constraintType="ClimbGradient",velocityType="1.3Vstall",
+            flightStateType="takeoff",aeroStateType="OEI_climb",V_v_req_fpm=0,
+            gamma_req=0.01,fuel_fraction=1):
+        
+        self.aircraft = aircraft
+        self.state = FlightState(stateType=flightStateType)
+        self.aerodynamics = Aerodynamics(aircraft,stateType=aeroStateType)
 
-		V = Variable("V","knots","Airspeed")
-		V_v = Variable("V_v","knots","Vertical speed")
-		gamma = Variable("\gamma","-","Climb angle (radians)")
-		T = Variable("T","lbf","Thrust available")
-		D = Variable("D","lbf","Drag")
-		V_stall = Variable("V_stall","knots","Stall speed at takeoff")
+        V = Variable("V","knots","Airspeed")
+        V_v = Variable("V_v","knots","Vertical speed")
+        V_v_req = Variable("V_v_req",V_v_req_fpm,"foot/min","Required vertical speed")
+        gamma = Variable("\gamma","-","Climb angle (radians)")
+        T = Variable("T","lbf","Thrust available")
+        D = Variable("D","lbf","Drag")
+        P = Variable("P","hp","Power available")
+        V_stall = Variable("V_stall","knots","Stall speed at takeoff")
+        W = Variable("W","lbf","Aircraft weight for constraint evaluation")
+        CLmax = Variable("CLmax","-","Maximum lift coefficient")
 
-		CLmax_TO = aircraft["CLmax_TO"]
-		P = aircraft.engines["P_OEI"]
-		W = aircraft["W_TO"]
-		S = aircraft.wing["S"]
-		
-		rho = self.state["rho"]
-		CL = self.aerodynamics["C_L"]
-		CD = self.aerodynamics["C_D"]
+        S = aircraft.wing["S"]
+        rho = self.state["rho"]
+        CL = self.aerodynamics["C_L"]
+        CD = self.aerodynamics["C_D"]
 
-		constraints = []
-		constraints += [self.state, self.aerodynamics]
+        constraints = []
+        constraints += [self.state, self.aerodynamics]
+        constraints += [W >= aircraft["W_ZF"] + fuel_fraction*aircraft["W_fuel"]]
+    
+        constraints += [T == aircraft.engines["eta_prop"]*P/V,
+            CL == 2*W / (rho*(V**2)*S),
+            D == 0.5 * rho*(V**2)*S * CD,
+            T >= gamma*W + D,
+            gamma == V_v / V,
+            V_stall == (2*W/(rho*S*CLmax))**0.5]
 
-		constraints += [T == aircraft.engines["eta_prop"]*P/V,
-			CL == 2*W / (rho*(V**2)*S),
-			D == 0.5 * rho*(V**2)*S * CD,
-			T >= gamma*W + D,
-			gamma == V_v / V,
-			gamma >= 0.01,#regulations say "demonstratably positive"
-			V == 1.3*V_stall,#used by Joby.
-			V_stall == (2*W/(rho*S*CLmax_TO))**0.5]
+        if aeroStateType == "OEI_climb":
+            constraints += [CLmax==aircraft["CLmax_TO"], P==aircraft.engines["P_OEI"]]
+        else:
+            constraints += [CLmax==aircraft["CLmax_cruise"], P==aircraft.engines["P"]]
 
-		return constraints
+        if velocityType == "1.3Vstall":
+            constraints += [V == 1.3*V_stall]#used by Joby.
+
+        if constraintType == "ClimbGradient":
+            constraints += [gamma >= gamma_req]
+        elif constraintType == "ClimbRate":
+            constraints += [V_v >= V_v_req]
+
+        return constraints
+
 
 #debugging script
 if __name__ == "__main__":
-	# Set up units
-	ureg = pint.UnitRegistry()
+    # Set up units
+    ureg = pint.UnitRegistry()
 
-	takeoff_distance_ft = 1763
-	range_nm = 1000
-	N = 5 #number of cruise segments
-	stall_speed_kts = 78
-	cruise_speed_kts = 180
+    takeoff_distance_ft = 1763
+    range_nm = 1000
+    N = 5 #number of cruise segments
+    stall_speed_kts = 78
+    cruise_speed_kts = 180
 
-	GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
-	GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
+    GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
+    GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
 
-	GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,
-		missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
-	GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,
-		missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
+    GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,
+        missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
+    GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,
+        missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=cruise_speed_kts)
 
-	GA_takeoffConstraint_fixedEngine = TakeoffDistance(GA_aircraft_fixedEngine,
-    	s_TO_ft=takeoff_distance_ft)
-	GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
-    	s_TO_ft=takeoff_distance_ft)
+    GA_takeoffConstraint_fixedEngine = TakeoffDistance(GA_aircraft_fixedEngine,
+        s_TO_ft=takeoff_distance_ft)
+    GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
+        s_TO_ft=takeoff_distance_ft)
 
-	GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,
-		Vstall_kts=stall_speed_kts)
-	GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,
-		Vstall_kts=stall_speed_kts)
+    GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,
+        Vstall_kts=stall_speed_kts)
+    GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,
+        Vstall_kts=stall_speed_kts)
 
-	GA_OEI_ClimbConstraint_fixedEngine = OEI_ClimbConstraint(GA_aircraft_fixedEngine)
-	GA_OEI_ClimbConstraint_rubberEngine = OEI_ClimbConstraint(GA_aircraft_rubberEngine)
+    gamma_req = 0.01 #regulations say "demonstratably positive"
+    GA_OEI_ClimbConstraint_fixedEngine = ClimbConstraint(GA_aircraft_fixedEngine,
+        constraintType="ClimbGradient",velocityType="1.3Vstall",flightStateType="takeoff",
+        aeroStateType="OEI_climb",gamma_req=gamma_req,fuel_fraction=1)
+    GA_OEI_ClimbConstraint_rubberEngine = ClimbConstraint(GA_aircraft_rubberEngine,
+        constraintType="ClimbGradient",velocityType="1.3Vstall",flightStateType="takeoff",
+        aeroStateType="OEI_climb",gamma_req=gamma_req,fuel_fraction=1)
 
-	constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
+    V_v_req_fpm = 100 #definition of service ceiling
+    GA_serviceCeilingConstraint_fixedEngine = ClimbConstraint(GA_aircraft_fixedEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="service_ceiling",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_fpm,fuel_fraction=1)
+    GA_serviceCeilingConstraint_rubberEngine = ClimbConstraint(GA_aircraft_rubberEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="service_ceiling",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_fpm,fuel_fraction=1)
+
+    constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
                             GA_takeoffConstraint_fixedEngine, 
-                            GA_stallSpeedConstraint_fixedEngine]
-                            #,GA_OEI_ClimbConstraint_fixedEngine]
+                            GA_stallSpeedConstraint_fixedEngine,
+                            GA_OEI_ClimbConstraint_fixedEngine]
 
-	constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
+    constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
                             GA_takeoffConstraint_rubberEngine, 
                             GA_stallSpeedConstraint_rubberEngine,
-                            GA_OEI_ClimbConstraint_rubberEngine]
+                            GA_OEI_ClimbConstraint_rubberEngine,
+                            GA_serviceCeilingConstraint_rubberEngine]
 
-	GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,
-		constraints_fixedEngine)
-	GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,
-		constraints_rubberEngine)
+    GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,
+        constraints_fixedEngine)
+    GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,
+        constraints_rubberEngine)
 
-	GA_solution_fixedEngine = GA_model_fixedEngine.solve(verbosity=0)
-	GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
+    GA_solution_fixedEngine = GA_model_fixedEngine.solve(verbosity=0)
+    GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
 
-	#print GA_solution_fixedEngine.summary()
-	print GA_solution_rubberEngine.summary()
+    #print GA_solution_fixedEngine.summary()
+    print GA_solution_rubberEngine.summary()
+
+    #print "Rubber-engine takeoff weight: %0.0f lbs" % GA_solution_rubberEngine["variables"]["W_TO"].magnitude
+
+
+
+
 
