@@ -79,7 +79,6 @@ GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
 #print GA_solution_fixedEngine.summary()
 #print GA_solution_rubberEngine.summary()
 
-
 #GA_mission.debug()
 
 # Plotting commands

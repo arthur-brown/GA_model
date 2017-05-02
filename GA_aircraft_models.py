@@ -182,8 +182,11 @@ class Nacelles (Model):
         Swet_oneNacelle = Variable("Swet_oneNacelle",8.172,"m^2","Wetted area of 1 nacelle")
         num_nacelles = Variable("num_nacelles",2,"-","Number of nacelles")
         Swet = Variable("Swet","m^2","Wetted area of nacelles")
-        W = Variable("W",100,"lbf","Nacelle weight (1 nacelle; from C414)")
-        return [Swet == num_nacelles * Swet_oneNacelle]
+        W_oneNacelle = Variable("W_oneNacelle",100,"lbf","Nacelle weight (1 nacelle; from C414)")
+        W = Variable("W","lbf","Nacelle(s) weight")
+
+        return [Swet == num_nacelles * Swet_oneNacelle,
+        	W == num_nacelles * W_oneNacelle]
 
 
 class LandingGear(Model):
@@ -284,7 +287,8 @@ class AircraftPerformance(Model):
         W_segment = Variable("W_segment","lbf","Weight at beginning of segment")
         CL = self.aerodynamics["C_L"]
         CD = self.aerodynamics["C_D"]
-        
+        T_available = Variable("T_available","lbf","Available thrust")
+        D = Variable("D","lbf","Drag")
         g = aircraft.g
 
         constraints = []
@@ -293,6 +297,11 @@ class AircraftPerformance(Model):
         #lift >= weight
         constraints += [W_segment == 0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CL,
         				W_segment >= aircraft["W_ZF"] + Wfuel]
+
+        #Thrust >= drag
+        constraints += [D == 0.5*state["rho"]*state["V"]**2 * aircraft.wing["S"]*CD,
+        				T_available == aircraft.engines["eta_prop"]*aircraft.engines["P"]/state["V"],
+        				T_available >= D]
 
         #Breguet range (Taylor)
         z = (g * segmentRange * aircraft.engines["SFC"] * CD) / (aircraft.engines["eta_prop"] * CL)
@@ -368,7 +377,7 @@ class FlightState(Model):
             rho = Variable("rho",0.90464,"kg/m^3","Air density")
             constraints += [V == V, h == h, rho == rho]
 
-        if stateType == "takeoff":
+        if stateType == "sea_level":
             h = Variable("h",0,"ft","Altitude")
             rho = Variable("rho",1.225,"kg/m^3","Air density")
             constraints += [h == h, rho == rho]
@@ -387,12 +396,12 @@ class FlightState(Model):
 
 class TakeoffDistance(Model):
 
-    def setup(self,aircraft,s_TO_ft=1763,state=FlightState(stateType="takeoff")):
+    def setup(self,aircraft,s_TO_ft=1763,state=FlightState(stateType="sea_level")):
         self.aircraft = aircraft
         self.state = state
         self.aerodynamics = Aerodynamics(aircraft,stateType="takeoff")
         
-        CLmax_TO = self.aerodynamics["CLmax_TO"]
+        CLmax_TO = self.aircraft["CLmax_TO"]
         CD = self.aerodynamics["C_D"]
         g = aircraft.g
 
@@ -402,7 +411,7 @@ class TakeoffDistance(Model):
 
         V_TO = 1.1*((2*aircraft.W_TO) / (state["rho"]*aircraft.wing["S"]*CLmax_TO))**(1./2)#1.1*V_stall
         D_TO = 0.5 * state["rho"] * V_TO**2 * aircraft.wing["S"] * CD
-        T_TO = aircraft.engines["eta_prop"]*aircraft.engines["num_engines"]*aircraft.engines["P"]/V_TO
+        T_TO = aircraft.engines["eta_prop"]*aircraft.engines["P"]/V_TO
 
         constraints = []
 
@@ -416,12 +425,12 @@ class TakeoffDistance(Model):
 
 class StallSpeed(Model):
 
-	def setup(self,aircraft,Vstall_kts=78,state=FlightState(stateType="takeoff")):
+	def setup(self,aircraft,Vstall_kts=78,state=FlightState(stateType="sea_level"),fuel_fraction=1):
 
 		self.aircraft = aircraft
 		self.state = state
 
-		W_half = Variable("W_{half}","lbf","Weight at 50% cruise (approximate")
+		W_stallSpeed = Variable("W_stallSpeed","lbf","Weight for evaluation of stall-speed constraint")
 
 		Vstall = Variable("Vstall","knots","Sea-level stalling speed (knots)")
 		Vstall_req = Variable("Vstall_req",Vstall_kts,"knots","Sea-level stalling speed requirement (knots)")
@@ -430,8 +439,8 @@ class StallSpeed(Model):
 		constraints = []
 		constraints += [self.state]
 
-		constraints += [W_half >= aircraft["W_ZF"] + 0.5*aircraft["W_fuel"],
-						Vstall == ((2**0.5 * W_half**0.5)/(self.state["rho"]**0.5 * self.aircraft["S"]**0.5 * CLmax**0.5)),
+		constraints += [W_stallSpeed >= aircraft["W_ZF"] + fuel_fraction*aircraft["W_fuel"],
+						Vstall == ((2*W_stallSpeed)/(self.state["rho"]*self.aircraft["S"]*CLmax))**0.5,
 						Vstall <= Vstall_req]
 
 		return constraints
@@ -439,7 +448,7 @@ class StallSpeed(Model):
 class ClimbConstraint(Model):
 
     def setup(self,aircraft,constraintType="ClimbGradient",velocityType="1.3Vstall",
-            flightStateType="takeoff",aeroStateType="OEI_climb",V_v_req_fpm=0,
+            flightStateType="sea_level",aeroStateType="OEI_climb",V_v_req_fpm=0,
             gamma_req=0.01,fuel_fraction=1):
         
         self.aircraft = aircraft
@@ -495,7 +504,7 @@ if __name__ == "__main__":
     ureg = pint.UnitRegistry()
 
     takeoff_distance_ft = 1763
-    range_nm = 1000
+    range_nm = 957
     N = 5 #number of cruise segments
     stall_speed_kts = 78
     cruise_speed_kts = 180
@@ -565,9 +574,11 @@ if __name__ == "__main__":
     GA_solution_rubberEngine = GA_model_rubberEngine.solve(verbosity=0)
 
     #print GA_solution_fixedEngine.summary()
-    print GA_solution_rubberEngine.summary()
+    #print GA_solution_rubberEngine.summary()
 
-    #print "Rubber-engine takeoff weight: %0.0f lbs" % GA_solution_rubberEngine["variables"]["W_TO"].magnitude
+    print "Rubber-engine takeoff weight: %0.0f lbs" % GA_solution_rubberEngine["variables"]["W_TO"].to(ureg.lbf).magnitude
+    print "Rubber-engine power available: %0.0f hp" % GA_solution_rubberEngine["variables"]["P_Aircraft, Engines"].to(ureg.hp).magnitude
+    print "Rubber-engine wing area: %0.0f ft^2" % GA_solution_rubberEngine["variables"]["S"].to(ureg.square_foot).magnitude
 
 
 
