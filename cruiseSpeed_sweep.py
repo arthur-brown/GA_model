@@ -15,7 +15,7 @@ takeoff_distance_ft = 1763
 range_nm = 1000
 N = 5 #number of cruise segments
 stall_speed_kts = 78
-cruise_speed_kts = np.linspace(130,200,10)
+cruise_speed_kts = np.linspace(130,180,10)
 
 GA_aircraft_fixedEngine = Aircraft(engineType="fixed")
 GA_aircraft_rubberEngine = Aircraft(engineType="rubber")
@@ -28,27 +28,57 @@ W_fuel_rubberEngine = np.zeros(np.size(cruise_speed_kts))
 
 for i,V_cruise in enumerate(cruise_speed_kts):
 
-    GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=V_cruise)
-    GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm,numCruiseSegments=N,cruiseSpeed_kts=V_cruise)
+    GA_mission_fixedEngine = Mission(GA_aircraft_fixedEngine,missionLength_nm=range_nm,
+        numCruiseSegments=N,cruiseSpeed_kts=V_cruise)
+    GA_mission_rubberEngine = Mission(GA_aircraft_rubberEngine,missionLength_nm=range_nm,
+        numCruiseSegments=N,cruiseSpeed_kts=V_cruise)
 
     GA_takeoffConstraint_fixedEngine = TakeoffDistance(GA_aircraft_fixedEngine,
         s_TO_ft=takeoff_distance_ft)
     GA_takeoffConstraint_rubberEngine = TakeoffDistance(GA_aircraft_rubberEngine,
         s_TO_ft=takeoff_distance_ft)
 
-    GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,Vstall_kts=stall_speed_kts)
-    GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,Vstall_kts=stall_speed_kts)
+    stallSpeed_fuelFraction = 0.5 #50% cruise
+    GA_stallSpeedConstraint_fixedEngine = StallSpeed(GA_aircraft_fixedEngine,
+        Vstall_kts=stall_speed_kts,fuel_fraction=stallSpeed_fuelFraction)
+    GA_stallSpeedConstraint_rubberEngine = StallSpeed(GA_aircraft_rubberEngine,
+        Vstall_kts=stall_speed_kts,fuel_fraction=stallSpeed_fuelFraction)
 
-    GA_OEI_ClimbConstraint_fixedEngine = OEI_ClimbConstraint(GA_aircraft_fixedEngine)
-    GA_OEI_ClimbConstraint_rubberEngine = OEI_ClimbConstraint(GA_aircraft_rubberEngine)
+    gamma_req = 0.01 #regulations say "demonstratably positive"
+    GA_OEI_ClimbConstraint_fixedEngine = ClimbConstraint(GA_aircraft_fixedEngine,
+        constraintType="ClimbGradient",velocityType="1.3Vstall",flightStateType="sea_level",
+        aeroStateType="OEI_climb",gamma_req=gamma_req,fuel_fraction=1)
+    GA_OEI_ClimbConstraint_rubberEngine = ClimbConstraint(GA_aircraft_rubberEngine,
+        constraintType="ClimbGradient",velocityType="1.3Vstall",flightStateType="sea_level",
+        aeroStateType="OEI_climb",gamma_req=gamma_req,fuel_fraction=1)
+
+    V_v_req_serviceCeiling_fpm = 100 #definition of service ceiling
+    GA_serviceCeilingConstraint_fixedEngine = ClimbConstraint(GA_aircraft_fixedEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="service_ceiling",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_serviceCeiling_fpm,fuel_fraction=1)
+    GA_serviceCeilingConstraint_rubberEngine = ClimbConstraint(GA_aircraft_rubberEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="service_ceiling",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_serviceCeiling_fpm,fuel_fraction=1)
+
+    V_v_req_seaLevel_fpm = 1450 
+    GA_seaLevelClimbRateConstraint_fixedEngine = ClimbConstraint(GA_aircraft_fixedEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="sea_level",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_seaLevel_fpm,fuel_fraction=1)
+    GA_seaLevelClimbRateConstraint_rubberEngine = ClimbConstraint(GA_aircraft_rubberEngine,
+        constraintType="ClimbRate",velocityType="unconstrained",flightStateType="sea_level",
+        aeroStateType="cruise",V_v_req_fpm=V_v_req_seaLevel_fpm,fuel_fraction=1)
 
     constraints_fixedEngine = [GA_aircraft_fixedEngine, GA_mission_fixedEngine,
-                            GA_takeoffConstraint_fixedEngine, GA_stallSpeedConstraint_fixedEngine]
-                            #,GA_OEI_ClimbConstraint_fixedEngine]
+                            GA_takeoffConstraint_fixedEngine, 
+                            GA_stallSpeedConstraint_fixedEngine,
+                            GA_OEI_ClimbConstraint_fixedEngine,
+                            GA_serviceCeilingConstraint_fixedEngine]
 
     constraints_rubberEngine = [GA_aircraft_rubberEngine, GA_mission_rubberEngine,
-                            GA_takeoffConstraint_rubberEngine, GA_stallSpeedConstraint_rubberEngine,
-                            GA_OEI_ClimbConstraint_rubberEngine]
+                            GA_takeoffConstraint_rubberEngine, 
+                            GA_stallSpeedConstraint_rubberEngine,
+                            GA_OEI_ClimbConstraint_rubberEngine,
+                            GA_serviceCeilingConstraint_rubberEngine]
 
     GA_model_fixedEngine = Model(GA_aircraft_fixedEngine.W_TO,constraints_fixedEngine)
     GA_model_rubberEngine = Model(GA_aircraft_rubberEngine.W_TO,constraints_rubberEngine)
@@ -122,6 +152,7 @@ plt.title("Fuel Weight vs. Cruising Speed",fontsize = 20)
 plt.legend(numpoints = 1,loc='lower left', fontsize = 12)
 #plt.xlim(xmin = np.min())
 plt.ylim(ymin = 0)
+
 
 '''
 #Fuel Weight vs. Mission Range
